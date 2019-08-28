@@ -66,14 +66,21 @@ def write_file(outputs, output_path):
                 file.write(line.strip() + '\n')
             file.write('\n')
 
-def get_score(doc_score):
+def get_score(doc_score,weights=[0.3,0.2,0.1,0.1,0.1,0.2]):
     docid = doc_score[0]
-    scores = doc_score[1]
+    counts = doc_score[1]
+    #If sum of weights 0 -some error -again give same weights
+    w_sum = 0
+    for weight in weights:
+        w_sum+=weight
+    if(w_sum == 0):
+        weights = [0.3,0.2,0.1,0.1,0.1,0.2]
+    #Get score with counts and weights
     score = 0 
     # Negative to insert into min heap
-    score -= (scores[0]*0.3)+(scores[1]*0.2)+(scores[2]*0.1)+(scores[3]*0.1)+(scores[4]*0.1)+(scores[5]*0.2)
-    # score -= scores[0]+scores[1]+scores[2]+scores[3]+scores[4]+scores[5]
-    return [score,docid]
+    score -= (counts[0]*weights[0])+(counts[1]*weights[1])+(counts[2]*weights[2])+(counts[3]*weights[3])+(counts[4]*weights[4])+(counts[5]*weights[5])
+    # score -= counts[0]+counts[1]+counts[2]+counts[3]+counts[4]+counts[5]
+    return score,docid
 
 
 def search(index_path, queries):
@@ -83,25 +90,73 @@ def search(index_path, queries):
     docid_dict = read_docid(index_path)
     num_res = 10    #Number of results
     for query in queries:
-        #######################
         doc_heap = []
         output = []
         print("query - ",query)
         if( re.search('title:|body:|infobox:|category:|ref:|link:',query)):
-            print("With fields -leaving for now")
-            #TODO
+            # Search with Fields
+            query_fields = query.split()
+            length = len(query_fields)
+            for qf in query_fields:
+                field,word = qf.split(':')
+                weights = [0,0,0,0,0,0]
+                if(field == 'title'):
+                    weights[0] = 1
+                if(field == 'infobox'):
+                    weights[1] = 1
+                if(field == 'ref'):
+                    weights[2] = 1
+                if(field == 'link'):
+                    weights[3] = 1
+                if(field == 'category'):
+                    weights[4] = 1
+                if(field == 'body'):
+                    weights[5] = 1
+                word = textprocessing.process_query(word)    ##Get only 1 word ??
+                docs_list = index[word[0]]
+                for doc in docs_list:
+                    #find if that doc is already present
+                    ind = -1
+                    i = 0
+                    if(len(doc_heap)):
+                        for doc_pair in doc_heap:
+                            if(doc_pair[1] == doc[0]):
+                                ind = i
+                                break
+                            i+=1
+                        if(ind != -1):
+                            old_val = doc_heap[ind][0]
+                            new_list = get_score(doc,weights)
+                            new_val = old_val+new_list[0]
+                            doc_heap[ind][0] = new_val
+                            heapq._siftdown(doc_heap,0,ind)
+                        else:
+                            score,docid = get_score(doc,weights)
+                            if( score < 0):
+                                heapq.heappush(doc_heap,[score,docid])
+                    else:
+                        score,docid = get_score(doc,weights)
+                        if( score < 0):
+                            heapq.heappush(doc_heap,[score,docid])
+            if(len(doc_heap)):
+                results = heapq.nsmallest(num_res,doc_heap)
+                for res in results:
+                    if(res[0] <= -length):      #To match all conditions in field???
+                        output.append(docid_dict[res[1]])
+            else:
+                print("No documents matching")
+                    
         else:
-            #print("Simple Query")
+            #Simple Query
             query_words = textprocessing.process_query(query)
             if(len(query_words) == 1):
                 docs_list = index[query_words[0]]
                 if(len(docs_list) > 0):
                     for doc in docs_list:
-                        # print(docid_dict[doc[0]])
-                        heapq.heappush(doc_heap,get_score(doc))
+                        score,docid = get_score(doc)
+                        heapq.heappush(doc_heap,[score,docid])
                     results = heapq.nsmallest(num_res,doc_heap)
                     for res in results:
-                        # print(docid_dict[res[1]])
                         output.append(docid_dict[res[1]])
                 else:
                     print("No documents matching")
@@ -109,7 +164,6 @@ def search(index_path, queries):
             else:
                 # NUmber of words in query - merge
                 for word in query_words:
-                    # print("word in query ", word)
                     docs_list = index[str(word)]
                     for doc in docs_list:
                         #find if that doc is already present
@@ -118,7 +172,6 @@ def search(index_path, queries):
                         if(len(doc_heap)):
                             for doc_pair in doc_heap:
                                 if(doc_pair[1] == doc[0]):
-                                    #print("Same doc - ",doc_pair[1],doc[0])
                                     ind = i
                                     break
                                 i+=1
@@ -129,21 +182,20 @@ def search(index_path, queries):
                                 doc_heap[ind][0] = new_val
                                 heapq._siftdown(doc_heap,0,ind)
                             else:
-                                heapq.heappush(doc_heap,get_score(doc))
+                                score,docid = get_score(doc)
+                                if( score < 0):
+                                    heapq.heappush(doc_heap,[score,docid])
                         else:
-                            heapq.heappush(doc_heap,get_score(doc))
+                            score,docid = get_score(doc)
+                            heapq.heappush(doc_heap,[score,docid])
                 if(len(doc_heap)):
                     results = heapq.nsmallest(num_res,doc_heap)
                     for res in results:
-                        # print(docid_dict[res[1]])
                         output.append(docid_dict[res[1]])
                 else:
                     print("No documents matching")
         outputs.append(output)
-
     return outputs
-    #Perform searching
-
 
 
 def main():
@@ -161,7 +213,6 @@ def main():
         queries = read_inputfile(input_path)
         outputs = search(index_path, queries)
         write_file(outputs, output_path)
-
 
 if __name__ == "__main__":
     main()
