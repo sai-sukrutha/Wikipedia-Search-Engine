@@ -3,23 +3,29 @@ import os
 import json
 import xml.sax
 import textprocessing
-import _pickle as cPickle
+import _pickle as pickle
 
 index = {}
-count = 0
+docid = {}
 index_path = ""
 file_path = "my_index"
+docid_path = "docid_title"
 
 
-def write_index_file(index):
+def write_index_file():
     f = file_path+".pkl"
     #print("writing file_path",file_path)
     with open(f, 'wb') as file:
-        cPickle.dump(index,file)
+        pickle.dump(index,file)
     # index = {'index': index}
     # f = file_path+".json"
     # with open(f, 'wb') as file:
     #     file.write(json.dumps(index))
+
+def write_docid_file():
+    f = docid_path+".pkl"
+    with open(f, 'wb') as file:
+        pickle.dump(docid,file)
 
 
 class WikiHandler(xml.sax.ContentHandler):
@@ -27,6 +33,7 @@ class WikiHandler(xml.sax.ContentHandler):
     idflag = 0
     titleflag = 0
     textflag = 0
+    count = 0
 
     def __init(self):
         self.current = ""
@@ -55,6 +62,9 @@ class WikiHandler(xml.sax.ContentHandler):
         if tag == "page":
             #print("Ending of a page")
             #WikiHandler.print_data(self)
+            self.id = WikiHandler.count
+            docid[self.id]=self.title
+            WikiHandler.count += 1 
             WikiHandler.create_index(self)
             WikiHandler.idflag = 0
             WikiHandler.titleflag = 0
@@ -67,10 +77,10 @@ class WikiHandler(xml.sax.ContentHandler):
             if( WikiHandler.titleflag == 0):
                 self.title = content
                 WikiHandler.titleflag = 1
-        if self.current == "id":
-            if( WikiHandler.idflag == 0):
-                self.id = content
-                WikiHandler.idflag = 1
+        # if self.current == "id":
+        #     if( WikiHandler.idflag == 0):
+        #         self.id = content
+        #         WikiHandler.idflag = 1
         if self.current == "text":
             if( WikiHandler.textflag == 0):
                 self.text = content
@@ -80,10 +90,8 @@ class WikiHandler(xml.sax.ContentHandler):
         
         
     def create_index(self):
-        global count
         global index
         global file_path
-        count+=1
         title_dict = textprocessing.process_title(self.title)
         infobox_dict,references_dict,links_dict,category_dict,bodytext_dict = textprocessing.process_text(self.text)
     
@@ -150,7 +158,7 @@ class WikiHandler(xml.sax.ContentHandler):
 def main():
     global index_path
     global file_path
-    global index
+    global docid_path
     if len(sys.argv)!= 3:
         print("Error:Syntax: python3 indexer.py <path_to_data> <path_to_index>")
         sys.exit(0)
@@ -159,19 +167,39 @@ def main():
         index_path=sys.argv[2]
         print("data_path - ",data_path)
         print("index_path - ",index_path)
-        file_path =os.path.join(index_path,file_path)
+        file_path = os.path.join(index_path,file_path)
+        docid_path = os.path.join(index_path,docid_path)
+        if( os.path.isfile(data_path) ):
+            # create an XMLReader
+            parser = xml.sax.make_parser()
+            # turn off namepsaces
+            parser.setFeature(xml.sax.handler.feature_namespaces, 0)
+            # override the default ContextHandler
+            Handler = WikiHandler()
+            parser.setContentHandler(Handler)
+            parser.parse(data_path)
+            if( not os.path.isdir(index_path)):
+                print("Directory not found")
+                os.mkdir(index_path)
+                print("Created directory ",index_path)
+            write_index_file()
+            write_docid_file()
+            print("Indexing Completed- Wrote Index file")
+        else:
+            print("Data file does not exist")
 
-        # create an XMLReader
-        parser = xml.sax.make_parser()
-        # turn off namepsaces
-        parser.setFeature(xml.sax.handler.feature_namespaces, 0)
-        # override the default ContextHandler
-        Handler = WikiHandler()
-        parser.setContentHandler(Handler)
-        parser.parse(data_path)
-    write_index_file(index)
-    print("Indexing Completed")
-    print("Count - ",count)
+
+
+                    # if(os.path.isdir(index_path)):
+        #     # if(os.path.isfile(file_path)):
+        #     #     #f= open(file_path,"a")
+        #     # else:
+        #     #     #f= open(file_path,"w+")
+        #     #print("path exists")
+        # else:
+        #     os.mkdir(path)
+        #     #f= open(file_path,"w+")
+        # # Writing into file
 
 
 if __name__ == "__main__":
