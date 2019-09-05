@@ -5,11 +5,11 @@ Commands to run
 
 bash index.sh <path_to_data> <folder_to_create_index>
 
-bash search.sh <path_index_file> <queries_input> <queries_output>
+bash search.sh <path_index_folder> <queries_input_file> <queries_output_file>
 
 
 Example:
 
 bash index.sh ../data/data.xml ../index/
 
-bash search.sh ../index/my_index.pkl ../queries/sample_queryfile ../queries/sample_output
+bash search.sh ../index/ ../queries/sample_queryfile ../queries/sample_output.txt
