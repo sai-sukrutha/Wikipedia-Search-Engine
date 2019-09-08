@@ -3,19 +3,24 @@ import os
 import xml.sax
 import textprocessing
 import _pickle as pickle
-import gzip
 from sortedcontainers import SortedDict
+import merging
 
 index = SortedDict()
 docid = {}
 docs_no = 0
-indexfile_path = "my_index.pkl"
+indexfile_path = "my_index"
 docid_path = "docid_title.pkl"
 docsno_path = "docs_no.txt"
 
+index_file_no = 0
+no_docs_in_file = 1000   #TODO:Change number
+
 
 def write_index_file():
-    f = indexfile_path
+    global index_file_no
+    index_file_no+=1
+    f = indexfile_path+str(index_file_no)+".pkl"
     with open(f, 'wb') as file:
         pickle.dump(index,file)
 
@@ -25,16 +30,19 @@ def write_docid_file():
     with open(f, 'wb') as file:
         pickle.dump(docid,file)
 
-def write_docsno_file():
+
+def write_docsno_file(final_no_indexfiles):
     f = docsno_path
     with open(f, 'w') as file:
         file.write(str(docs_no))
+        file.write(" ")
+        file.write(str(final_no_indexfiles))
 
 
 class WikiHandler(xml.sax.ContentHandler):
     titleflag = 0
     textflag = 0
-    count = 0
+    count = 1
 
     def __init(self):
         self.current = ""
@@ -50,16 +58,22 @@ class WikiHandler(xml.sax.ContentHandler):
 
     def endElement(self,tag):
         global docs_no
+        global index
         if tag == "page":
             self.id = WikiHandler.count
             docid[self.id]=self.title
-            WikiHandler.count += 1 
             docs_no = WikiHandler.count
+            WikiHandler.count += 1 
             WikiHandler.create_index(self)
             WikiHandler.idflag = 0
             WikiHandler.titleflag = 0
             WikiHandler.textflag = 0
             WikiHandler.__init(self)
+            #Write temp_index if no_docs reached
+            if(docs_no % no_docs_in_file == 0):
+                write_index_file()
+                index = SortedDict()
+
 
     def characters(self,content):
         if self.current == "title":
@@ -93,7 +107,7 @@ class WikiHandler(xml.sax.ContentHandler):
             vocabulary.update(set(bodytext_dict.keys()))
         #print("vocabulary - ",vocabulary)
 
-        #Calculating tf(term frequency) and storing in index for fields seperately
+        #Calculating tf(term frequency and storing in index) for fields seperately
         for term in vocabulary:
             temp_list = []
             counts = []
@@ -133,6 +147,7 @@ def main():
     global indexfile_path
     global docid_path
     global docsno_path
+    final_index_name = "final_index"
 
     if len(sys.argv)!= 3:
         print("Error:Syntax: python3 indexer.py <path_to_data> <path_to_index>")
@@ -143,21 +158,31 @@ def main():
         indexfile_path = os.path.join(index_path,indexfile_path)
         docid_path = os.path.join(index_path,docid_path)
         docsno_path = os.path.join(index_path,docsno_path)
+        final_index_name = os.path.join(index_path,final_index_name)
         if( os.path.isfile(data_path) ):
+            #If data present ,crete directory of index if not present(saving index file in between)
+            if( not os.path.isdir(index_path)):
+                os.mkdir(index_path)
             #XMLParser
             parser = xml.sax.make_parser()
             parser.setFeature(xml.sax.handler.feature_namespaces, 0)
             Handler = WikiHandler()
             parser.setContentHandler(Handler)
             parser.parse(data_path)
-            #Write index
-            if( not os.path.isdir(index_path)):
-                os.mkdir(index_path)
-                # print("Created directory ",index_path)
-            write_index_file()
+            #Write all files of index
+            # if( not os.path.isdir(index_path)):
+            #     os.mkdir(index_path)
+            #     # print("Created directory ",index_path)
+            #If index{} has entries at end-write of file
+            if(len(index)):
+                write_index_file()
             write_docid_file()
-            write_docsno_file()
-            # print("Indexing Completed- Wrote Index file")
+            #Merging index files
+
+            final_no_indexfiles = merging.merge_indexes(index_file_no,indexfile_path,final_index_name)
+            write_docsno_file(final_no_indexfiles)
+
+            print("Indexing Completed- ")
         else:
             print("Data file does not exist")
             sys.exit(1)

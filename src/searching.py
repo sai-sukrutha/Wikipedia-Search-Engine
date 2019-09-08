@@ -1,37 +1,32 @@
 import sys
 import os
 import re
-import _pickle as pickle
+# import _pickle as pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 import textprocessing
 import heapq
-import gzip
 from sortedcontainers import SortedDict
 from math import log2
 
-index_file_name = "my_index.pkl"
+index_file_name = "final_index"
 docid_file_name = "docid_title.pkl"
 docsno_file_name = "docs_no.txt"
 
-# def convert_bytes(num):
-#     """
-#     this function will convert bytes to MB.... GB... etc
-#     """
-#     for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
-#         if num < 1024.0:
-#             return "%3.1f %s" % (num, x)
-#         num /= 1024.0
 
-
-def read_index(index_path):
-    index = SortedDict()
+def read_index(index_path , index_file_no):
+    index = {}
     file_path = os.path.join(index_path,index_file_name)
+    file_path += str(index_file_no)+".pkl"
+    print("Index file name - ",file_path)
     if(os.path.isfile(file_path)):
-        statinfo = os.stat(file_path)
-        # print("Index File size - ",convert_bytes(statinfo.st_size))
         with open(file_path, 'rb') as file:
             index = pickle.load(file)
+        # print(index)
     else:
-        print("index does not exist")
+        print("index does not exist - ",index_file_no)
         sys.exit(1)
     return index
 
@@ -40,8 +35,6 @@ def read_docid(index_path):
     docid_dict = {}
     file_path = os.path.join(index_path,docid_file_name)
     if(os.path.isfile(file_path)):
-        statinfo = os.stat(file_path)
-        # print("Docid File size - ",convert_bytes(statinfo.st_size))
         with open(file_path, 'rb') as file:
             docid_dict = pickle.load(file)
     else:
@@ -51,17 +44,19 @@ def read_docid(index_path):
 
 
 def read_docsno(index_path):
-    total_docs = 0
     file_path = os.path.join(index_path,docsno_file_name)
     if(os.path.isfile(file_path)):
-        statinfo = os.stat(file_path)
-        # print("docsno File size - ",convert_bytes(statinfo.st_size))
         with open(file_path, 'r') as file:
-            total_docs = file.read()
+            data = file.read()
+        data = data.split(' ')
+        total_docs = int(data[0])
+        no_index_files = int(data[1])
+        print("No of docs - ",total_docs)
+        print("NO of index files - ",no_index_files)
     else:
         print("docsno file does not exist")
         sys.exit(1)
-    return int(total_docs)
+    return total_docs,no_index_files
 
 
 def read_inputfile(input_path):
@@ -114,9 +109,17 @@ def get_idf_scores(docs_list,weights,total_docs):
 
 def search(index_path, queries):
     outputs = []
-    index = read_index(index_path)
+    #First read no of index files from docs_no file and then indexes
     docid_dict = read_docid(index_path)
-    total_docs = read_docsno(index_path)
+    total_docs,no_index_files = read_docsno(index_path)
+
+    ##TODO
+    # for file_no in range(1,no_index_files+1):
+    #Find crct index_file_no to search for that word
+    #index_file_no = get_index_no(word) --> Do below for each word
+    # read_index(index_path,index_file_no)
+    index = read_index(index_path,1)
+
     num_res = 10    #Number of results
 
     #When we have queries of more than 1 word - Calculate IDF score and push to heap
@@ -196,6 +199,7 @@ def search(index_path, queries):
                 for word in query_words:
                     if ( word in index):
                         docs_list = index[word]
+                        # print("word-",word," length-",len(docs_list))
                         idf_score = (log2(total_docs/float(len(docs_list))))
                         for doc in docs_list:
                             #find if that doc is already present
