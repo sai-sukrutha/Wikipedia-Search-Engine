@@ -12,17 +12,29 @@ docs_no = 0
 indexfile_path = "my_index"
 docid_path = "docid_title.pkl"
 docsno_path = "docs_no.txt"
+end_words_file = "file_ends.pkl"
 
 index_file_no = 0
-no_docs_in_file = 1000   #TODO:Change number
+size_in_file = 1000000       # 10MB or 0.01GB (RAM min 2GB)
 
 
 def write_index_file():
     global index_file_no
     index_file_no+=1
-    f = indexfile_path+str(index_file_no)+".pkl"
-    with open(f, 'wb') as file:
-        pickle.dump(index,file)
+    f = indexfile_path+str(index_file_no)
+    # with open(f, 'wb') as file:
+    #     pickle.dump(index,file)
+    file_str = ""
+    keys = index.keys()
+    for key in keys:
+        file_str += key+":"
+        for doc in index[key]:
+            file_str += str(doc[0])
+            file_str += str(doc[1])
+            file_str += "|"
+        file_str += "\n"
+    with open(f, 'w') as file:
+        file.write(file_str)
 
 
 def write_docid_file():
@@ -37,6 +49,11 @@ def write_docsno_file(final_no_indexfiles):
         file.write(str(docs_no))
         file.write(" ")
         file.write(str(final_no_indexfiles))
+
+def write_endwords_file(end_words):
+    f = end_words_file
+    with open(f, 'wb') as file:
+        pickle.dump(end_words,file)
 
 
 class WikiHandler(xml.sax.ContentHandler):
@@ -69,8 +86,8 @@ class WikiHandler(xml.sax.ContentHandler):
             WikiHandler.titleflag = 0
             WikiHandler.textflag = 0
             WikiHandler.__init(self)
-            #Write temp_index if no_docs reached
-            if(docs_no % no_docs_in_file == 0):
+            #Write temp_index if size reached
+            if(sys.getsizeof(index) >= size_in_file ):
                 write_index_file()
                 index = SortedDict()
 
@@ -147,6 +164,7 @@ def main():
     global indexfile_path
     global docid_path
     global docsno_path
+    global end_words_file
     final_index_name = "final_index"
 
     if len(sys.argv)!= 3:
@@ -159,6 +177,7 @@ def main():
         docid_path = os.path.join(index_path,docid_path)
         docsno_path = os.path.join(index_path,docsno_path)
         final_index_name = os.path.join(index_path,final_index_name)
+        end_words_file = os.path.join(index_path,end_words_file)
         if( os.path.isfile(data_path) ):
             #If data present ,crete directory of index if not present(saving index file in between)
             if( not os.path.isdir(index_path)):
@@ -169,24 +188,19 @@ def main():
             Handler = WikiHandler()
             parser.setContentHandler(Handler)
             parser.parse(data_path)
-            #Write all files of index
-            # if( not os.path.isdir(index_path)):
-            #     os.mkdir(index_path)
-            #     # print("Created directory ",index_path)
-            #If index{} has entries at end-write of file
+
             if(len(index)):
                 write_index_file()
             write_docid_file()
             #Merging index files
 
-            final_no_indexfiles = merging.merge_indexes(index_file_no,indexfile_path,final_index_name)
+            final_no_indexfiles,end_words = merging.merge_indexes(index_file_no,indexfile_path,final_index_name)
             write_docsno_file(final_no_indexfiles)
-
-            print("Indexing Completed- ")
+            write_endwords_file(end_words)
+            # print("Indexing Completed ")
         else:
-            print("Data file does not exist")
+            # print("Data file does not exist")
             sys.exit(1)
-            
 
 if __name__ == "__main__":
     main()
