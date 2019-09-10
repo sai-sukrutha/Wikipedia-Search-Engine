@@ -8,5 +8,5 @@ then
     output_path=$3
     python3 searching.py $index_path $input_path $output_path
 else
-    echo "Error:Syntax: bash index.sh <path_to_data> <path_to_index>"
+    echo "Error:Syntax: bash search.sh <path_to_index> <path_to_inputfile> <path_to_outputfile>"
 fi
