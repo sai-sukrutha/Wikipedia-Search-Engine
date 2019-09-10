@@ -81,10 +81,10 @@ def is_good_word(r):
         return False
     #Removing large numbers - Ids (length 4 -years -- Storing years ??)
     if( NUMBERS.fullmatch(r)):
-        # if(len(r)==4):
-        #     return True
-        # else:
-        #     return False
+        if(len(r)==4):
+            return True
+        else:
+            return False
         return False
     else:
         #Removing alphanumeric values
