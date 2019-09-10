@@ -11,27 +11,74 @@ import heapq
 from sortedcontainers import SortedDict
 from math import log2
 
+index_path = ""
 index_file_name = "final_index"
 docid_file_name = "docid_title.pkl"
 docsno_file_name = "docs_no.txt"
+file_ends_file = "file_ends.pkl"
+file_ends = []
 
 
-def read_index(index_path , index_file_no):
+def read_file_ends():
+    global index_path
+    global file_ends
+
+    if(len(file_ends)):
+        return file_ends
+    else:
+        file_path = os.path.join(index_path,file_ends_file)
+        if(os.path.isfile(file_path)):
+            with open(file_path, 'rb') as file:
+                file_ends = pickle.load(file)
+        else:
+            print("end_words file does not exist")
+            sys.exit(1)
+
+
+def get_index_no(term):
+    global file_ends
+
+    if(len(file_ends)==0):
+        read_file_ends()
+
+    for i in range(len(file_ends)):
+        if( term <= file_ends[i] ):
+            return i+1
+    return -1
+
+
+def read_docsno():
+    global index_path
+    file_path = os.path.join(index_path,docsno_file_name)
+    if(os.path.isfile(file_path)):
+        with open(file_path, 'r') as file:
+            data = file.read()
+        data = data.split(' ')
+        total_docs = int(data[0])
+        no_index_files = int(data[1])
+    else:
+        print("docsno file does not exist")
+        sys.exit(1)
+    return total_docs,no_index_files
+
+
+def read_index( index_file_no ):
+    global index_path
     index = {}
     file_path = os.path.join(index_path,index_file_name)
     file_path += str(index_file_no)+".pkl"
-    print("Index file name - ",file_path)
+    # print("Index file name - ",file_path)
     if(os.path.isfile(file_path)):
         with open(file_path, 'rb') as file:
             index = pickle.load(file)
-        # print(index)
     else:
         print("index does not exist - ",index_file_no)
         sys.exit(1)
     return index
 
 
-def read_docid(index_path):
+def read_docid():
+    global index_path
     docid_dict = {}
     file_path = os.path.join(index_path,docid_file_name)
     if(os.path.isfile(file_path)):
@@ -41,22 +88,6 @@ def read_docid(index_path):
         print("docid_title file does not exist")
         sys.exit(1)
     return docid_dict
-
-
-def read_docsno(index_path):
-    file_path = os.path.join(index_path,docsno_file_name)
-    if(os.path.isfile(file_path)):
-        with open(file_path, 'r') as file:
-            data = file.read()
-        data = data.split(' ')
-        total_docs = int(data[0])
-        no_index_files = int(data[1])
-        print("No of docs - ",total_docs)
-        print("NO of index files - ",no_index_files)
-    else:
-        print("docsno file does not exist")
-        sys.exit(1)
-    return total_docs,no_index_files
 
 
 def read_inputfile(input_path):
@@ -107,18 +138,15 @@ def get_idf_scores(docs_list,weights,total_docs):
     return idf_scores
 
 
-def search(index_path, queries):
+def search( queries):
+    global index_path
     outputs = []
     #First read no of index files from docs_no file and then indexes
-    docid_dict = read_docid(index_path)
-    total_docs,no_index_files = read_docsno(index_path)
-
-    ##TODO
-    # for file_no in range(1,no_index_files+1):
-    #Find crct index_file_no to search for that word
-    #index_file_no = get_index_no(word) --> Do below for each word
-    # read_index(index_path,index_file_no)
-    index = read_index(index_path,1)
+    docid_dict = read_docid()
+    total_docs,no_index_files = read_docsno()
+    # print("No of docs = ",total_docs)
+    # print("No of index_files = ",no_index_files)
+    read_file_ends()
 
     num_res = 10    #Number of results
 
@@ -146,60 +174,77 @@ def search(index_path, queries):
                 if(field == 'body'):
                     weights[5] = 1
                 word = textprocessing.process_query(word)    ##Get only 1 word ??
-                if ( word[0] in index):
-                    docs_list = index[word[0]]
-                    idf_scores = get_idf_scores(docs_list,weights,total_docs)
-                    for doc in docs_list:
-                        #find if that doc is already present
-                        ind = -1
-                        i = 0
-                        if(len(doc_heap)):
-                            for doc_pair in doc_heap:
-                                if(doc_pair[1] == doc[0]):
-                                    ind = i
-                                    break
-                                i+=1
-                            if(ind != -1):
-                                old_val = doc_heap[ind][0]
-                                new_list = get_score(doc,idf_scores)
-                                new_val = old_val+new_list[0]
-                                doc_heap[ind][0] = new_val
-                                heapq._siftdown(doc_heap,0,ind)
+
+                index_no = get_index_no(word[0])
+                # print("word - ",word,"reading from file -",index_no)
+                if( index_no != -1):
+                    index = read_index(index_no)
+
+                    if ( word[0] in index):
+                        docs_list = index[word[0]]
+                        idf_scores = get_idf_scores(docs_list,weights,total_docs)
+                        for doc in docs_list:
+                            #find if that doc is already present
+                            ind = -1
+                            i = 0
+                            if(len(doc_heap)):
+                                for doc_pair in doc_heap:
+                                    if(doc_pair[1] == doc[0]):
+                                        ind = i
+                                        break
+                                    i+=1
+                                if(ind != -1):
+                                    old_val = doc_heap[ind][0]
+                                    new_list = get_score(doc,idf_scores)
+                                    new_val = old_val+new_list[0]
+                                    doc_heap[ind][0] = new_val
+                                    heapq._siftdown(doc_heap,0,ind)
+                                else:
+                                    score,docid = get_score(doc,idf_scores)
+                                    heapq.heappush(doc_heap,[score,docid])
                             else:
                                 score,docid = get_score(doc,idf_scores)
                                 heapq.heappush(doc_heap,[score,docid])
-                        else:
-                            score,docid = get_score(doc,idf_scores)
-                            heapq.heappush(doc_heap,[score,docid])
+                else:
+                    print("No documents matching ")
             if(len(doc_heap)):
                 results = heapq.nsmallest(num_res,doc_heap)
                 for res in results:
                     # if(res[0] <= -length):      #To match all conditions in field???-does not work
                     output.append(docid_dict[res[1]])
             else:
-                print("No documents matching ",query)
+                print("No documents matching ")
                     
         else:
             #Simple Query
             query_words = textprocessing.process_query(query)
+            #Only 1 word query
             if(len(query_words) == 1):
-                if ( query_words[0] in index ):
-                    docs_list = index[query_words[0]]
-                    for doc in docs_list:
-                        score,docid = get_score(doc)
-                        heapq.heappush(doc_heap,[score,docid])
-                    results = heapq.nsmallest(num_res,doc_heap)
-                    for res in results:
-                        output.append(docid_dict[res[1]])
+                index_no = get_index_no(query_words[0])
+                # print("word - ",query,"reading from file -",index_no)
+                if(index_no != -1):
+                    index = read_index(index_no)
+                    if ( query_words[0] in index ):
+                        docs_list = index[query_words[0]]
+                        for doc in docs_list:
+                            score,docid = get_score(doc)
+                            heapq.heappush(doc_heap,[score,docid])
+                        results = heapq.nsmallest(num_res,doc_heap)
+                        for res in results:
+                            output.append(docid_dict[res[1]])
+                    else:
+                        print("No documents matching ")
                 else:
-                    print("No documents matching ",query)
+                    print("No documents matching ")
 
             else:
                 # NUmber of words in query - merge
                 for word in query_words:
-                    if ( word in index):
+                    index_no = get_index_no(word)
+                    # print("word - ",word,"reading from file -",index_no)
+                    if(index_no != -1):
+                        index = read_index(index_no)
                         docs_list = index[word]
-                        # print("word-",word," length-",len(docs_list))
                         idf_score = (log2(total_docs/float(len(docs_list))))
                         for doc in docs_list:
                             #find if that doc is already present
@@ -224,17 +269,21 @@ def search(index_path, queries):
                                 score,docid = get_score(doc)
                                 # tfidf_score = score*idf_score
                                 heapq.heappush(doc_heap,[score*idf_score,docid])
+                    else:
+                        print("No documents matching ")
                 if(len(doc_heap)):
                     results = heapq.nsmallest(num_res,doc_heap)
                     for res in results:
                         output.append(docid_dict[res[1]])
                 else:
-                    print("No documents matching ",query)
+                    print("No documents matching ")
         outputs.append(output)
     return outputs
 
 
 def main():
+    global index_path
+
     if len(sys.argv)!= 4:
         print("Error:Syntax: python3 searching.py <index_path> <path_to_input> <path_to_output>")
         sys.exit(0)
@@ -243,9 +292,7 @@ def main():
         input_path=sys.argv[2]
         output_path=sys.argv[3]
         queries = read_inputfile(input_path)
-        # queries = []
-        # #remove |^
-        outputs = search(index_path, queries)
+        outputs = search(queries)
         write_file(outputs, output_path)
 
 
