@@ -9,7 +9,8 @@ from sortedcontainers import SortedDict
 
 
 file_pointers = []
-size_in_file = 50000000   # 0.5GB (RAM min 2GB)
+size_in_file = 500000000   # 0.5GB (RAM min 2GB)
+# size_in_file = 1000000
 
 
 #Elements in heap - Node

@@ -21,6 +21,7 @@ file_ends = []
 total_docs = 0
 no_index_files = 0
 docid_dict = {}
+curr_open_index = 0
 
 
 def read_file_ends():
@@ -140,6 +141,7 @@ def search( query):
     start = time.time()
     global docid_dict
     global total_docs
+    global curr_open_index
 
     num_res = 10    #Number of results
 
@@ -170,7 +172,9 @@ def search( query):
             #Get index file no in which the word may be present and obtain the index
             index_no = get_index_no(word[0])
             if( index_no != -1):
-                index = read_index(index_no)
+                if( index_no != curr_open_index):
+                    index = read_index(index_no)
+                    curr_open_index = index_no
                 if ( word[0] in index):
                     docs_list = index[word[0]]
                     idf_scores = get_idf_scores(docs_list,weights,total_docs)
@@ -214,7 +218,9 @@ def search( query):
             #Get index file no in which the word may be present and obtain the index
             index_no = get_index_no(query_words[0])
             if(index_no != -1):
-                index = read_index(index_no)
+                if( index_no != curr_open_index):
+                    index = read_index(index_no)
+                    curr_open_index = index_no
                 if ( query_words[0] in index ):
                     docs_list = index[query_words[0]]
                     for doc in docs_list:
@@ -229,12 +235,14 @@ def search( query):
                 print("No documents matching ")
 
         else:
-            # NUmber of words in query - merge
+            # More words in query - merge
             for word in query_words:
                 #Get index file no in which the word may be present and obtain the index
                 index_no = get_index_no(word)
                 if(index_no != -1):
-                    index = read_index(index_no)
+                    if( index_no != curr_open_index):
+                        index = read_index(index_no)
+                        curr_open_index = index_no
                     if( word in index ):
                         docs_list = index[word]
                         idf_score = (log2(total_docs/float(len(docs_list))))
