@@ -263,8 +263,9 @@ def merge_indexes_intermediate(start_index_no , end_index_no , prev_index_file_p
         prev_file_path = prev_index_file_path+str(start_index_no)
         curr_no_index_files+=1
         new_file_path = prev_index_file_path+str(curr_no_index_files)
-        print("*****Only one file no merge - Renaming ",prev_file_path," to ",new_file_path)
+        # print("*****Only one file no merge - Renaming ",prev_file_path," to ",new_file_path)
         os.rename(prev_file_path,new_file_path)
+	return 0, []
 
     heap = []
     get_file_pointers(start_index_no,end_index_no,prev_index_file_path)
