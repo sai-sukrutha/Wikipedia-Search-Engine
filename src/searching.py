@@ -21,7 +21,8 @@ file_ends = []
 total_docs = 0
 no_index_files = 0
 docid_dict = {}
-curr_open_index = 0
+curr_open_index = -2
+index = {}
 
 
 def read_file_ends():
@@ -142,12 +143,13 @@ def search( query):
     global docid_dict
     global total_docs
     global curr_open_index
+    global index
 
     num_res = 10    #Number of results
 
     #When we have queries of more than 1 word - Calculate IDF score and push to heap
     doc_heap = []
-    output = []
+    output = []   
     if( re.search('title:|body:|infobox:|category:|ref:|link:',query)):
         # Search with Fields
         query_fields = query.split()
@@ -172,9 +174,10 @@ def search( query):
             #Get index file no in which the word may be present and obtain the index
             index_no = get_index_no(word[0])
             if( index_no != -1):
-                if( index_no != curr_open_index):
+                if( index_no != curr_open_index ):
                     index = read_index(index_no)
                     curr_open_index = index_no
+                # index = read_index(index_no)
                 if ( word[0] in index):
                     docs_list = index[word[0]]
                     idf_scores = get_idf_scores(docs_list,weights,total_docs)
@@ -191,7 +194,7 @@ def search( query):
                             if(ind != -1):
                                 old_val = doc_heap[ind][0]
                                 new_list = get_score(doc,idf_scores)
-                                new_val = old_val+new_list[0]
+                                new_val = (old_val+new_list[0])*2   #When a doc has more than 1 word of query-give more weight
                                 doc_heap[ind][0] = new_val
                                 heapq._siftdown(doc_heap,0,ind)
                             else:
@@ -218,9 +221,10 @@ def search( query):
             #Get index file no in which the word may be present and obtain the index
             index_no = get_index_no(query_words[0])
             if(index_no != -1):
-                if( index_no != curr_open_index):
+                if( index_no != curr_open_index ):
                     index = read_index(index_no)
                     curr_open_index = index_no
+                # index = read_index(index_no)
                 if ( query_words[0] in index ):
                     docs_list = index[query_words[0]]
                     for doc in docs_list:
@@ -240,9 +244,10 @@ def search( query):
                 #Get index file no in which the word may be present and obtain the index
                 index_no = get_index_no(word)
                 if(index_no != -1):
-                    if( index_no != curr_open_index):
+                    if( index_no != curr_open_index ):
                         index = read_index(index_no)
                         curr_open_index = index_no
+                    # index = read_index(index_no)
                     if( word in index ):
                         docs_list = index[word]
                         idf_score = (log2(total_docs/float(len(docs_list))))
@@ -259,7 +264,7 @@ def search( query):
                                 if(ind != -1):
                                     old_val = doc_heap[ind][0]
                                     new_list = get_score(doc)
-                                    new_val = old_val+(new_list[0]*idf_score)
+                                    new_val = (old_val+(new_list[0]*idf_score))*2   #When a doc has more than 1 word of query-give more weight
                                     doc_heap[ind][0] = new_val
                                     heapq._siftdown(doc_heap,0,ind)
                                 else:
@@ -295,9 +300,6 @@ def main():
     else:
         print("Loading...")
         index_path=sys.argv[1]
-        # input_path=sys.argv[2]
-        # output_path=sys.argv[3]
-        # queries = read_inputfile(input_path)
         load_files()
         query = ''
         # while( (query == 'quit') or (query == 'exit') ):
@@ -310,9 +312,6 @@ def main():
                 print_list(output)
                 print("Resp Time-",time_diff,"s")
                 print("\n")
-
-
-        # write_file(outputs, output_path)
 
 
 if __name__ == "__main__":

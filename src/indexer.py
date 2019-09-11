@@ -15,13 +15,13 @@ docsno_path = "docs_no.txt"
 end_words_file = "file_ends.pkl"
 
 index_file_no = 0
-size_in_file = 10000000       # 10MB or 0.01GB (RAM min 2GB)
+size_in_file = 100000000       # 100MB or 0.1GB (RAM min 2GB) (merging 100 files together)
+# size_in_file = 100000
 
 
 def write_index_file():
     global index_file_no
     index_file_no+=1
-    print(index_file_no)
     f = indexfile_path+str(index_file_no)
     # with open(f, 'wb') as file:
     #     pickle.dump(index,file)
