@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-# Wikipedia-Search-Engine
-A Search Engine using minimized wikipedia data dump 
-=======
 # Mini-Wikipedia-Search-Engine
 A Search Engine using Wikipedia data dump.
->>>>>>> 862270a1490a827cbc135e494b7e48c414ce874a
 
 Commands to run
 
