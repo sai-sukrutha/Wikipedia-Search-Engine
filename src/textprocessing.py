@@ -5,6 +5,9 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 # from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer
+import sys
+
+max_recursion = sys.getrecursionlimit()
 
 stemmer = PorterStemmer()
 
@@ -69,7 +72,16 @@ def tokenization_stemming(r):
     #Tokenization
     words = word_tokenize(r)
     #Stemming
-    s =[ stemmer.stem(w) for w in words ]
+    # s =[ stemmer.stem(w) for w in words ]  #--> Causing Recursion
+    s = []
+    for w in words:
+        #if( (len(w) >= max_recursion) and ('y' in w) ):
+        #if(len(w) > 35 ):
+        #    print("long word - ",w)
+        #else:
+        #    s.append(stemmer.stem(w))
+        if ( len(w) < 35 ):
+            s.append(stemmer.stem(w))
     return s
 
 
@@ -80,20 +92,25 @@ def is_good_word(r):
     if(len(r) <= 2):
         return False
     #Removing large numbers - Ids (length 4 -years -- Storing years ??)
-    if( NUMBERS.fullmatch(r)):
+    if( r.isnumeric() ):
         if(len(r)==4):
             return True
         else:
             return False
         return False
-    else:
-        #Removing alphanumeric values
-        if(re.fullmatch('[a-zA-Z0-9]*',r)):
-            if(re.fullmatch('[a-zA-Z]*',r)):
-                return True
-            else:
-                return False
-    if( re.fullmatch('[0-9]*-[0-9]*',r)):
+    #Removing alphanumeric values
+    #if(re.fullmatch('\b[a-zA-Z0-9]*\b',r)):
+    #    if(re.fullmatch('\b[a-zA-Z]*\b',r)):
+    #        return True
+    #    else:
+    #        return False
+    elif( r.isalnum() ):
+        if( r.isalpha() ):
+            return True
+        else:
+            return False
+    Dates and times
+    if( re.fullmatch('\b[0-9\-\\:]*\b',r)):      
         return False
     return True
 

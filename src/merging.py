@@ -14,10 +14,13 @@ file_names_pointers_dict = {}
 prev_no_index_files = 0
 curr_no_index_files = 0
 
-no_files_to_merge = 100
-size_in_file = 500000000   # 0.5GB (RAM min 2GB)
+no_files_to_merge = 5
+size_in_file = 1000000
 # no_files_to_merge = 10
 # size_in_file = 1000000
+
+count_files = 1
+end_words = []
 
 
 
@@ -57,7 +60,11 @@ def read_index(term_dict):
                 counts_list = counts.split(',')
                 c_list = []
                 for count in counts_list:
-                    c_list.append(float(count))
+                    try:
+                        c_list.append(float(count))
+                    except:
+                        print("count exception occured ",count)
+                        c_list.append(0.0);
                 d_list.append(int(docid))
                 d_list.append(c_list)
                 doc_list.append(d_list)
@@ -112,38 +119,43 @@ def read_line_index ( file_pointers_index ):
     index = read_index(line)
     return index
 
-
+#Write in file after every line(big string)
 def write_index_file(file_path , index):
     global curr_no_index_files
 
     curr_no_index_files+=1
     f = file_path+str(curr_no_index_files)
+    file = open(f, 'w')
+    file_str = ""
+    print("Writing into file - ",f)
     file_str = ""
     keys = index.keys()
     for key in keys:
+        file_str = ""
         file_str += key+":"
         for doc in index[key]:
             file_str += str(doc[0])
             file_str += str(doc[1])
             file_str += "|"
         file_str += "\n"
-    with open(f, 'w') as file:
-        file.write(file_str)
+        file.writelines(file_str)
+    file.close()
+    #with open(f, 'w') as file:
+    #    file.write(file_str)
+    return
 
 
-
-#BSBI
 #K-way merge using  heaps
 #parameters - no_index_files, final_index file name
 def merge_final_indexes(no_index_files,prev_index_file_path,final_index_file):
 
     global file_pointers
     global file_names_pointers_dict
+    global count_files
+    global end_words
 
     heap = []
-    count_files = 1 #No of index_files
 
-    end_words = []
     #TODO:check
     get_final_file_pointers(no_index_files,prev_index_file_path)
 
@@ -184,7 +196,7 @@ def merge_final_indexes(no_index_files,prev_index_file_path,final_index_file):
                 indexes_array[i]=''
                 file_name = file_names_pointers_dict[i]
                 indexes_array[i]=''
-                # print("File finished ",i , "Deleting ",file_name)
+                print("File finished ",i , "Deleting ",file_name)
                 os.remove(file_name)
 
             else:
@@ -222,7 +234,7 @@ def merge_final_indexes(no_index_files,prev_index_file_path,final_index_file):
                     file_pointers[curr_index_file].close()
                     file_name = file_names_pointers_dict[curr_index_file]
                     indexes_array[curr_index_file]=''
-                    # print("File finished ",curr_index_file , "Deleting ",file_name)
+                    print("File finished ",curr_index_file , "Deleting ",file_name)
                     os.remove(file_name)
                 else:
                     indexes_array[curr_index_file] = temp_index
@@ -230,11 +242,12 @@ def merge_final_indexes(no_index_files,prev_index_file_path,final_index_file):
 
         if(sys.getsizeof(final_index) >= size_in_file):
             #Write into a index file after size exceeds
-            f = final_index_file+str(count_files)+".pkl"
-            # print("Writing into file - ",f)
+            f = final_index_file+str(count_files)
+            print("Writing into file - ",f)
             count_files+=1
-            with open(f, 'wb') as file:
-                pickle.dump(final_index,file)
+            #with open(f, 'wb') as file:
+            #    pickle.dump(final_index,file)
+	    write_index_file(file , final_index)
             final_index = {}
             end_words.append(end_word)
 
@@ -245,26 +258,29 @@ def merge_final_indexes(no_index_files,prev_index_file_path,final_index_file):
         end_word = curr.term
         # print(curr.term)
 
-    f = final_index_file+str(count_files)+".pkl"
-    # print("Writing into file - ",f)
-    with open(f, 'wb') as file:
-        pickle.dump(final_index,file)
+    f = final_index_file+str(count_files)
+    print("Writing into file - ",f)
+    #with open(f, 'wb') as file:
+    #    pickle.dump(final_index,file)
+    write_index_file(file , final_index)
     end_words.append(end_word)
-    return count_files,end_words
+    return
 
 
 def merge_indexes_intermediate(start_index_no , end_index_no , prev_index_file_path , new_index_file_path):
     global file_pointers
     global prev_no_index_files
     global curr_no_index_files 
+    global count_files
 
     if( start_index_no == end_index_no):
         #Just rename file-no need of merge
         prev_file_path = prev_index_file_path+str(start_index_no)
         curr_no_index_files+=1
         new_file_path = prev_index_file_path+str(curr_no_index_files)
-        print("*****Only one file no merge - Renaming ",prev_file_path," to ",new_file_path)
+        print("Only one file no merge - Renaming ",prev_file_path," to ",new_file_path)
         os.rename(prev_file_path,new_file_path)
+	return
 
     heap = []
     get_file_pointers(start_index_no,end_index_no,prev_index_file_path)
@@ -304,7 +320,7 @@ def merge_indexes_intermediate(start_index_no , end_index_no , prev_index_file_p
                 indexes_array[i]=''
                 file_name = file_names_pointers_dict[i]
                 indexes_array[i]=''
-                # print("File finished ",i , "Deleting ",file_name)
+                print("File finished ",i , "Deleting ",file_name)
                 os.remove(file_name)
             else:
                 indexes_array[i] = temp_index
@@ -340,7 +356,7 @@ def merge_indexes_intermediate(start_index_no , end_index_no , prev_index_file_p
                     file_pointers[curr_index_file].close()
                     file_name = file_names_pointers_dict[curr_index_file]
                     indexes_array[curr_index_file]=''
-                    # print("File finished ",curr_index_file , "Deleting ",file_name)
+                    print("File finished ",curr_index_file , "Deleting ",file_name)
                     os.remove(file_name)
                 else:
                     indexes_array[curr_index_file] = temp_index
@@ -353,38 +369,37 @@ def merge_indexes_intermediate(start_index_no , end_index_no , prev_index_file_p
 
     #Write index as text only (intermediate indices)
     write_index_file(new_index_file_path,temp_final_index)
-    return 0,[]       #To match with return types
+    return
 
 
-# final_no_indexfiles,end_words = merging.merge_indexes(index_file_no,indexfile_path,final_index_name)
+#First we merge all indexes ( intermediately by merging 5 files) and then do final merge saving final index files
 def merge_indexes(no_index_files,prev_index_file_path,new_index_file_path):
 
     global prev_no_index_files
     global curr_no_index_files
 
-    if(no_index_files <= no_files_to_merge):
-        count_files,end_words = merge_final_indexes(no_index_files,prev_index_file_path,new_index_file_path)
-        return count_files,end_words
-    else:
-        prev_no_index_files = no_index_files
-        curr_no_index_files = 0
-        temp = 1
-        while(temp <= no_index_files):
-            start_index_no = temp
-            if(temp+no_files_to_merge <= no_index_files):
-                end_index_no = temp+no_files_to_merge-1
-                temp +=no_files_to_merge
-            else:
-                end_index_no = no_index_files
-                temp = no_index_files+1
+    prev_no_index_files = no_index_files
+    curr_no_index_files = 0
+    temp = 1
+    while(temp <= no_index_files):
+    	start_index_no = temp
+        if(temp+no_files_to_merge <= no_index_files):
+            end_index_no = temp+no_files_to_merge-1
+            temp +=no_files_to_merge
+        else:
+            end_index_no = no_index_files
+            temp = no_index_files+1
             # print("Merging indexes from ",start_index_no," - ",end_index_no)
 
-            count_files,end_words = merge_indexes_intermediate(start_index_no,end_index_no,prev_index_file_path,prev_index_file_path)  #Same name for indexes-previous deleted before new ones wrote
+            merge_indexes_intermediate(start_index_no,end_index_no,prev_index_file_path,prev_index_file_path)  #Same name for indexes-previous deleted before new ones wrote
 
         print("Previous no_index_files ",prev_no_index_files)
         print("Current no_index_files ",curr_no_index_files)
-        count_files,end_words = merge_indexes(curr_no_index_files,prev_index_file_path,new_index_file_path)
-        return count_files,end_words
+
+    count_files,end_words = merge_final_indexes(curr_no_index_files,prev_index_file_path,new_index_file_path)
+   
+    return count_files,end_words
+
         
 
 

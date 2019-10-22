@@ -15,7 +15,7 @@ docsno_path = "docs_no.txt"
 end_words_file = "file_ends.pkl"
 
 index_file_no = 0
-size_in_file = 100000000       # 100MB or 0.1GB (RAM min 2GB) (merging 100 files together)
+size_in_file = 5000000
 # size_in_file = 100000
 
 
@@ -81,6 +81,8 @@ class WikiHandler(xml.sax.ContentHandler):
             self.id = WikiHandler.count
             docid[self.id]=self.title
             docs_no = WikiHandler.count
+            if( WikiHandler.count % 10000 == 0):
+                print("docs read - ",WikiHandler.count)
             WikiHandler.count += 1 
             WikiHandler.create_index(self)
             WikiHandler.idflag = 0
@@ -198,11 +200,10 @@ def main():
 
             final_no_indexfiles,end_words = merging.merge_indexes(index_file_no,indexfile_path,final_index_name)
             write_docsno_file(final_no_indexfiles)
-            # print(end_words)
             write_endwords_file(end_words)
             print("Merging Indexes Completed ")
         else:
-            # print("Data file does not exist")
+            print("Data file does not exist")
             sys.exit(1)
 
 if __name__ == "__main__":

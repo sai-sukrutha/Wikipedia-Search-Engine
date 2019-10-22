@@ -70,7 +70,7 @@ def read_docsno():
         sys.exit(1)
 
 
-def read_index( index_file_no ):
+def read_index_pkl( index_file_no ):
     global index_path
     index = {}
     file_path = os.path.join(index_path,index_file_name)
@@ -83,6 +83,50 @@ def read_index( index_file_no ):
         print("index does not exist - ",index_file_no)
         sys.exit(1)
     return index
+    
+def read_index_line(term_dict):
+    global index
+    if(len(term_dict)):
+        terms = term_dict
+        term,doclist = terms.split(':')
+        docs_list = doclist.split('|')
+        docs_list = docs_list[:-1]      #Last is \n empty as we have |\n at end
+        doc_list = []
+        for doc in docs_list:
+            d_list = []
+            if(doc != ''): 
+                docid,counts = doc.split('[')
+                counts = counts.split("]")[0]
+                counts_list = counts.split(',')
+                c_list = []
+                for count in counts_list:
+                    c_list.append(float(count))
+                d_list.append(int(docid))
+                d_list.append(c_list)
+                doc_list.append(d_list)
+        index[term]=doc_list
+    return 
+
+
+def read_index_file( index_file_no ):
+    global index_path
+    global index
+    index = {}
+    file_path = os.path.join(index_path,index_file_name)
+    file_path += str(index_file_no)
+    # print("Index file name - ",file_path)
+    if(os.path.isfile(file_path)):
+        file = open(file_path, 'r')
+        line = file.readline()
+        while(line != ''):
+            read_index_line(line)
+            line = file.readline()
+        file.close()
+    else:
+        print("index does not exist - ",index_file_no)
+        sys.exit(1)
+    return
+    
 
 
 def read_docid():
@@ -101,7 +145,7 @@ def read_docid():
 
 #Score assigns weights to diff fields of text
 #Count now has tf - so this returns tf score(-ve)
-def get_score(doc_score,weights=[0.3,0.2,0.1,0.1,0.1,0.2]):
+def get_score(doc_score,weights=[0.3,0.1,0.1,0.1,0.1,0.3]):
     docid = doc_score[0]
     counts = doc_score[1]
     #If sum of weights 0 -some error -again give same weights
@@ -109,7 +153,7 @@ def get_score(doc_score,weights=[0.3,0.2,0.1,0.1,0.1,0.2]):
     for weight in weights:
         w_sum+=weight
     if(w_sum == 0):
-        weights = [0.3,0.2,0.1,0.1,0.1,0.2]
+        weights = [0.3,0.1,0.1,0.1,0.1,0.3]
     #Get score with counts and weights
     score = 0        # Negative to insert into min heap
     score -= (counts[0]*weights[0])+(counts[1]*weights[1])+(counts[2]*weights[2])+(counts[3]*weights[3])+(counts[4]*weights[4])+(counts[5]*weights[5])
@@ -146,6 +190,7 @@ def search( query):
     global index
 
     num_res = 10    #Number of results
+    max_in_heap = 100
 
     #When we have queries of more than 1 word - Calculate IDF score and push to heap
     doc_heap = []
@@ -157,25 +202,30 @@ def search( query):
         for qf in query_fields:
             field,word = qf.split(':')
             weights = [0,0,0,0,0,0]
-            if(field == 'title'):
-                weights[0] = 1
-            if(field == 'infobox'):
-                weights[1] = 1
-            if(field == 'ref'):
-                weights[2] = 1
-            if(field == 'link'):
-                weights[3] = 1
-            if(field == 'category'):
-                weights[4] = 1
-            if(field == 'body'):
-                weights[5] = 1
+            if ':' in qf:
+                field,word = qf.split(':')
+                if(field == 'title'):
+                    weights[0] = 1
+                if(field == 'infobox'):
+                    weights[1] = 1
+                if(field == 'ref'):
+                    weights[2] = 1
+                if(field == 'link'):
+                    weights[3] = 1
+                if(field == 'category'):
+                    weights[4] = 1
+                if(field == 'body'):
+                    weights[5] = 1
+            else:
+                word = qf
+                
             word = textprocessing.process_query(word)    ##Get only 1 word ??
 
             #Get index file no in which the word may be present and obtain the index
             index_no = get_index_no(word[0])
             if( index_no != -1):
                 if( index_no != curr_open_index ):
-                    index = read_index(index_no)
+                    read_index_file(index_no)
                     curr_open_index = index_no
                 # index = read_index(index_no)
                 if ( word[0] in index):
@@ -203,6 +253,9 @@ def search( query):
                         else:
                             score,docid = get_score(doc,idf_scores)
                             heapq.heappush(doc_heap,[score,docid])
+                            
+                        if( len(doc_heap) > max_in_heap):
+                            doc_heap = doc_heap[:max_in_heap]
             else:
                 print("No documents matching ")
         if(len(doc_heap)):
@@ -222,7 +275,7 @@ def search( query):
             index_no = get_index_no(query_words[0])
             if(index_no != -1):
                 if( index_no != curr_open_index ):
-                    index = read_index(index_no)
+                    read_index_file(index_no)
                     curr_open_index = index_no
                 # index = read_index(index_no)
                 if ( query_words[0] in index ):
@@ -230,6 +283,10 @@ def search( query):
                     for doc in docs_list:
                         score,docid = get_score(doc)
                         heapq.heappush(doc_heap,[score,docid])
+
+                        if( len(doc_heap) > max_in_heap):
+                            doc_heap = doc_heap[:max_in_heap]
+                        
                     results = heapq.nsmallest(num_res,doc_heap)
                     for res in results:
                         output.append(docid_dict[res[1]])
@@ -245,12 +302,13 @@ def search( query):
                 index_no = get_index_no(word)
                 if(index_no != -1):
                     if( index_no != curr_open_index ):
-                        index = read_index(index_no)
+                        read_index_file(index_no)
                         curr_open_index = index_no
                     # index = read_index(index_no)
                     if( word in index ):
                         docs_list = index[word]
-                        idf_score = (log2(total_docs/float(len(docs_list))))
+                        if( len(docs_list) > 0):
+                            idf_score = (log2(total_docs/float(len(docs_list))))
                         for doc in docs_list:
                             #find if that doc is already present
                             ind = -1
@@ -274,6 +332,10 @@ def search( query):
                                 score,docid = get_score(doc)
                                 # tfidf_score = score*idf_score
                                 heapq.heappush(doc_heap,[score*idf_score,docid])
+                            
+                            if( len(doc_heap) > max_in_heap):
+                                doc_heap = doc_heap[:max_in_heap]
+                            
                 else:
                     print("No documents matching ")
             if(len(doc_heap)):
