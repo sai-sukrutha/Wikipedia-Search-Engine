@@ -372,7 +372,7 @@ def merge_indexes_intermediate(start_index_no , end_index_no , prev_index_file_p
     return
 
 
-#First we merge all indexes ( intermediately by merging 5 files) and then do final merge saving final index files
+#First we merge all indexes by 5-way merge ( intermediately by merging 5 files) and then do final merge saving final index files
 def merge_indexes(no_index_files,prev_index_file_path,new_index_file_path):
 
     global prev_no_index_files
